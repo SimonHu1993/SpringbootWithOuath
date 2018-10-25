@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.zhx.oauth2.common.shortmessage.mapper.ShortMessageMapper">
+    <!-- 保存短信信息 -->
+    <insert id="insertPhoneMessage" parameterType="java.util.HashMap">
+        insert into sms_log (phone,content,sendtime,endtime,message_type,status,create_time ) value(#{phone},#{content},#{sendtime},#{endtime},#{message_type},1,now())
+    </insert>
+
+    <!-- 设置短信无效  -->
+    <update id="updatePhoneMessage" parameterType="java.util.HashMap">
+        update sms_log set status=0 where phone=#{phone} and status=1
+        <if test="phoceCode!=null">
+            and content = #{phoceCode}
+            and ( #{nowtime} BETWEEN sendtime and endtime )
+        </if>
+    </update>
+</mapper>

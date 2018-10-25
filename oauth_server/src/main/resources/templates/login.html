@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+>
+<head>
+    <meta charset="UTF-8">
+    <title>资和信内部管理平台</title>
+    <script th:src="@{/js/vue.min.js}"></script>
+    <script th:src="@{/js/vue-router.min.js}"></script>
+    <script th:src="@{/js/vue-resource.min.js}"></script>
+    <script th:src="@{/element-ui/lib/index.js}"></script>
+    <link rel="stylesheet" th:href="@{/element-ui/lib/theme-chalk/index.css}">
+    <script th:src="@{/js/jquery-3.1.1.min.js}"></script>
+    <script th:src="@{/js/vdt.js}"></script>
+</head>
+<body >
+<div id="app">
+    <el-container >
+        <el-dialog :visible.sync="dialogTableVisible"
+                   center
+                   :show-close="showClose"
+                   width="400px"
+                   :close-on-click-modal="showClose"
+                   :close-on-press-escape="showClose"
+        >
+            <el-row>
+                <el-col :span="14" offset="4">
+                    <el-tabs v-model="activeName" v-on:tab-click="handleClick">
+                            <el-tab-pane label="账号密码登录" name="userLogin"></el-tab-pane>
+                            <el-tab-pane label="手机号登录"   name="phoneLogin"></el-tab-pane>
+                    </el-tabs>
+                </el-col>
+            </el-row>
+            <el-form :label-position="labelPosition" :rules="loginFormRules" id="loginForm" method="post" label-suffix=":" label-width="100px" :model="loginForm" ref="loginForm">
+                <el-form-item label="登录名称" prop="username">
+                    <el-input v-model="loginForm.username" placeholder="登录名称" name="username" style="width: 200px;"  auto-complete="off" ></el-input>
+                </el-form-item>
+                <el-form-item label="登录密码" prop="password">
+                    <el-input v-model="loginForm.password" placeholder="登录密码" type="password" v-on:keyup.enter.native="submitForm('loginForm')" name="password" style="width: 200px;"  auto-complete="off"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary"  size="medium" v-on:click="submitForm('loginForm')">登录</el-button>
+                </el-form-item>
+                <input type="hidden" name="client_id" >
+                <input type="hidden" name="response_type"  >
+                <input type="hidden" name="redirect_uri"  >
+                <input type="hidden" name="login_type"  >
+            </el-form>
+            <el-form :label-position="labelPosition" id="phoneForm" :rules="phoneFormRules" style="display: none" method="post" label-suffix=":" label-width="100px" :model="phoneForm" ref="phoneForm">
+                <el-form-item label="手机号" prop="phone">
+                    <el-input v-model="phoneForm.phone" placeholder="手机号" name="phone" style="width: 200px;"  auto-complete="off" ></el-input>
+                </el-form-item>
+                <el-form-item label="验证码" prop="code">
+                    <el-input v-model="phoneForm.code" placeholder="验证码" type="code" name="code" style="width: 100px;"  auto-complete="off"></el-input>
+                    <el-button type="primary" size="small" :disabled="sendCodeDisabled" v-on:click="sendCode()">发送验证码</el-button>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary"  size="medium" v-on:click="submitForm('phoneForm')">登录</el-button>
+                </el-form-item>
+                <input type="hidden" name="client_id" >
+                <input type="hidden" name="response_type"  >
+                <input type="hidden" name="redirect_uri"  >
+                <input type="hidden" name="login_type"  >
+            </el-form>
+        </el-dialog>
+    </el-container>
+</div>
+
+<script th:inline="javascript">
+    var basePath=[[@{/}]];
+    var clientId=[[${clientParam.client_id}]];
+    var responseType=[[${clientParam.response_type}]];
+    var redirectUri=[[${clientParam.redirect_uri}]];
+    /*<![CDATA[*/
+    Vue.http.options.emulateJSON = true;
+    var vue = new Vue({
+        el: '#app',
+        data:{
+            dialogTableVisible:true,
+            showClose:false,
+            labelPosition:'left',
+            loginForm:{
+                username:'',
+                password:'',
+                client_id:clientId,
+                response_type:responseType,
+                redirect_uri:redirectUri
+            },
+            phoneForm:{
+                phone:'',
+                code:'',
+                client_id:clientId,
+                response_type:responseType,
+                redirect_uri:redirectUri
+            },
+            phoneFormRules:{
+                phone:[
+                    {required: true, message: '请输入手机号' ,trigger: 'blur'},
+                    {max: 11,min:11, message: '长度为11个数字' ,trigger: 'blur'}
+                ],
+                code:[
+                    {required: true, message: '请输入验证码' ,trigger: 'blur'},
+                    {max: 6,min:6, message: '长度为6个数字' ,trigger: 'blur'}
+                ]
+            },
+            activeName:'userLogin',
+            sendCodeDisabled:false,
+            loginFormRules:{
+                username:[
+                    {required: true, message: '请输入登录名称' ,trigger: 'blur'},
+                    {max: 20,min:4, message: '长度在4-20个字符内' ,trigger: 'blur'}
+                ],
+                password:[
+                    {required: true, message: '请输入登录密码' ,trigger: 'blur'},
+                    {max: 30,min:8, message: '长度在8-30个字符内' ,trigger: 'blur'}
+                ]
+            }
+        },
+        mounted(){
+        },
+        updated(){
+        },
+        methods:{
+            submitForm(formName){
+                this.$refs[formName].validate(
+                    (valid) => {
+                    if (valid) {
+                            let param1;
+                            let param2;
+                            if(formName=='phoneForm'){
+                                param1 = this.phoneForm.phone;
+                                if (vdt.phone(param1) ==false) {
+                                    return;
+                                }
+                                param2 = this.phoneForm.code;
+                            }else {
+                                param1 = this.loginForm.username;
+                                param2 = this.loginForm.password;
+                            }
+                            var param ={'param1':param1,'param2':param2,'clientId':clientId,'loginType':formName};
+                            this.$http.post([[@{/checkLogin}]], param,{emulateJSON: true}).then(function (res) {
+                                let code = res.data.code;
+                                let msg = res.data.msg;
+                                if(code=='000'){
+                                    // $("#client_id").val(clientId);
+                                    // $("#response_type").val(responseType);
+                                    // $("#redirect_uri").val(redirectUri);
+                                    $("input[name='client_id']").val(clientId);
+                                    $("input[name='response_type']").val(responseType);
+                                    $("input[name='redirect_uri']").val(redirectUri);
+                                    $("input[name='login_type']").val(formName);
+
+                                    $("#"+formName).attr("action", [[@{/authorize}]]);
+                                    $("#"+formName).submit();
+                                }else {
+                                    this.open(msg, code);
+                                }
+                            }, function () {
+                                console.log('failed');
+                            });
+                    } else {
+                        return false;
+                    }
+                    }
+                );
+            },
+            sendCode(){//发送验证码
+                let phone = this.phoneForm.phone;
+                console.log(phone);
+                if (vdt.phone(phone) ==false) {
+                    return;
+                }
+                var param ={  'phone':phone};
+                this.$http.post([[@{/user/sendSms}]], param,{emulateJSON: true}).then(function (res) {
+                    let code = res.data.returnCode;
+                    let msg = res.data.returnMsg;
+                    this.open(msg, code);
+                }, function () {
+                    console.log('failed');
+                });
+            },
+            //提示信息
+            open: function (msg, code) {
+                if (code == '000') {
+                    this.sendCodeDisabled = true;
+                    this.$alert(msg, '提示', {
+                        confirmButtonText: '确定',
+                        type: 'success'
+                    });
+                } else {
+                    this.$alert(msg, '提示', {
+                        confirmButtonText: '确定',
+                        type: 'error'
+                    });
+                }
+
+            },
+            handleClick(tab, event){
+                console.log(vue.activeName);
+                if(vue.activeName=='userLogin'){
+                    document.getElementById('loginForm').style.display='';
+                    document.getElementById('phoneForm').style.display='none';
+                }else {
+                    document.getElementById('phoneForm').style.display='';
+                    document.getElementById('loginForm').style.display='none';
+                }
+            }
+        }
+    })
+
+    /*]]>*/
+</script>
+
+</body>
+</html>

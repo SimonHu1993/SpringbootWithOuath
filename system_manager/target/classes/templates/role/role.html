@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+>
+<head>
+    <meta charset="UTF-8">
+    <title>角色管理</title>
+    <script th:src="@{/js/vue.min.js}"></script>
+    <!--<script src="https://cdn.bootcss.com/vue/2.5.13/vue.js"></script>-->
+    <script th:src="@{/js/vue-router.min.js}"></script>
+    <script th:src="@{/js/vue-resource.min.js}"></script>
+    <script th:src="@{/element-ui/lib/index.js}"></script>
+    <link rel="stylesheet" th:href="@{/element-ui/lib/theme-chalk/index.css}">
+    <script th:src="@{/js/jquery-3.1.1.min.js}"></script>
+    <style>
+        .el-header {
+            text-align: right;
+            font-size: 16px;
+            line-height: 60px;
+            background-color: #F0F8FF;
+        }
+    </style>
+</head>
+<body >
+    <div id="app">
+        <el-header>
+            <div style="float: left">
+                请选择系统:
+                <el-select v-model="managerClient" placeholder="请选择系统">
+                    <el-option
+                            v-for="item in clientList"
+                            :value="item.client_id"
+                            :key = "item.client_id"
+                            :label="item.client_name">
+                    </el-option>
+                </el-select>
+                <el-button type="primary"  icon="el-icon-search"  v-on:click="selectMenu()">查询</el-button>
+                <el-button type="primary"  v-on:click="showAddRole()">增加</el-button>
+            </div>
+        </el-header>
+        <el-container style="width: 100%;height: 550px;">
+            <el-table :data="dataJson" style="width: 100%" max-height="500"
+                      highlight-current-row ref="single-table">
+                <el-table-column property="id" label="编号" > </el-table-column>
+                <el-table-column property="roleName" label="角色名称" > </el-table-column>
+                <el-table-column property="status" label="状态" > </el-table-column>
+                <el-table-column property="createTime" label="创建时间" > </el-table-column>
+                <el-table-column  label="操作" >
+                    <template scope="scope" >
+                        <el-button type="primary"
+                                   size="mini"
+                                   v-on:click="editRole(scope.row)">
+                            编辑
+                        </el-button>
+                        <el-button type="primary"
+                                   size="mini"
+                                   v-on:click="delRole(scope.row)">
+                            删除
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </el-container>
+        <div class="block" align="center">
+            <el-pagination
+                    v-on:size-change="handleSizeChange"
+                    v-on:current-change="handleCurrentChange"
+                    :current-page="page"
+                    :page-sizes="[10, 30, 50, 100]"
+                    :page-size="pageSize"
+                    layout="total, sizes, prev, pager, next"
+                    :total="total">
+            </el-pagination>
+        </div>
+
+        <el-dialog :title="title" :visible.sync="dialogFormVisible" fullscreen >
+            <el-form label-position="left" :model="roleForm" ref="role-form-ref" size="small">
+                <el-form-item label="角色名称" label-width="120px" >
+                    <el-input type="text" v-model="roleForm.roleName"    auto-complete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="选择菜单"></el-form-item>
+                <el-tree style="width: 100%;"
+                         :props="defaultProps"
+                         node-key="menuId"
+                         show-checkbox
+                         :data="menuList"
+                         :expand-on-click-node="expandOnClickNode"
+                         :default-expand-all="defaultExpandAll"
+                         ref="menu-tree-ref"
+                >
+                </el-tree>
+                <el-form-item label=""></el-form-item>
+                <el-form-item size="small">
+                    <el-button type="primary" v-on:click="submitRoleForm()">提 交</el-button>
+                    <el-button type="primary" v-on:click="dialogFormVisible = false">取 消</el-button>
+                </el-form-item>
+            </el-form>
+        </el-dialog>
+
+    </div>
+
+    <script th:inline="javascript">
+        var basePath=[[@{/}]];
+        var clientList = [[${managerClientList}]];
+        /*<![CDATA[*/
+        Vue.http.options.emulateJSON = true;
+        var vue = new Vue({
+            el: '#app',
+            data: {
+                //客户端选择
+                clientList: clientList,
+                managerClient: "",
+                //分页信息
+                dataJson: [],
+                pageSize: 10,
+                page: 1,
+                total: 10,
+                title:'',
+                //添加角色对话框信息
+                dialogFormVisible: false, //默认隐藏添加对话框
+                roleForm:{
+                    roleName:'',
+                    roleMenuIds:'',
+                    clientId:'',
+                    submitType: 0 ,  //0 添加， 1 编辑,
+                    roleId: ''
+                },
+                //树形菜单
+                defaultExpandAll:true,
+                expandOnClickNode:true,
+                defaultProps:{
+                    id: 'menuId',
+                    label: 'menuName',
+                    children: 'sonMenuList',
+                    isLeaf:'hasSon'
+                },
+                menuList:[]
+
+            },
+            mounted(){
+                //计算页面高度
+                var heights = document.documentElement.clientHeight;
+                this.leftMenuHeight = heights - 68;
+            },
+            updated(){
+
+            },
+            methods: {
+                //查询系统下菜单
+                selectMenu(){
+                    if (this.managerClient == "") {
+                        this.$alert("请选择系统", '提示', {
+                            confirmButtonText: '确定'
+                        })
+                        return false;
+                    }
+                    //查询角色列表
+                    this.showTable();
+                    //查询菜单列表
+                    this.findAllMenu();
+                },
+                //每页显示数据量变更
+                handleSizeChange(val) {
+                    this.pageSize = val;
+                    this.showTable();
+                },
+                //页码变更
+                handleCurrentChange (val) {
+                    this.page = val;
+                    this.showTable();
+                },
+                // table list
+                showTable(){
+                    this.$http.post(
+                            [[@{/role/list}]],
+                            {
+                                page: this.page,
+                                pageSize: this.pageSize,
+                                clientId : this.managerClient
+                            }
+                    ).then(
+                            response => {
+                                this.dataJson = response.data.rows;
+                                this.total = response.data.totalCount;
+                            }
+                    )
+                },
+                delRole(row){
+                    this.$confirm('此操作将删除角色【'+row.roleName+'】, 是否继续?', '提示', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(() => {
+                        //调用后台删除接口
+                        this.$http.post(
+                            [[@{/role/delRole}]],
+                        {
+                            roleId:row.id
+                        }
+                        ).then( response => {
+                            if(response.body.code=='000'){
+                                vue.$message({
+                                    type: 'success',
+                                    message: '删除成功!'
+                                });
+                                this.showTable();
+                            }else{
+                                this.$message({
+                                    type: 'info',
+                                    message: response.body.msg
+                                })
+                            }
+                        });
+                    }).catch(() => {
+                        this.$message({
+                            type: 'info',
+                            message: '已取消删除'
+                        });
+                    });
+                },
+                showAddRole(){
+                    this.dialogFormVisible=true;//显示对话框
+                    this.title="新增角色";
+                    this.roleForm.submitType=0;//提交类型改为0   。编辑的时候改为1
+                    this.roleForm.roleId='';
+                    //取消选中
+                    var menuTree = this.$refs['menu-tree-ref'];
+                    if(menuTree!=null&&menuTree!=""){
+                        var selectedMenu = this.$refs['menu-tree-ref'].getCheckedKeys();
+                        for(var i in selectedMenu){
+                            this.$refs['menu-tree-ref'].setChecked(selectedMenu[i],false);
+                        }
+                    }
+                    //数据清空
+                    this.roleForm.roleMenuIds='';
+                    this.roleForm.roleName = '';
+                },
+                //添加角色
+                submitRoleForm(){
+                    if (this.managerClient == "") {
+                        this.$alert("请选择系统", '提示', {
+                            confirmButtonText: '确定'
+                        })
+                        return false;
+                    }
+                    //获取选中的menuId列表
+                    var selectedMenu = this.$refs['menu-tree-ref'].getCheckedKeys();
+                    var roleMenuIds = '';
+                    for(var i in selectedMenu){
+                        roleMenuIds+=selectedMenu[i]+','
+                    }
+                    var roleForm = this.roleForm;
+                    roleForm.roleMenuIds=roleMenuIds;
+                    roleForm.clientId = this.managerClient;
+                    this.$http.post(
+                            [[@{/role/addRole}]],
+                            roleForm
+                    ).then( response => {
+                            if(response.body.code=='000'){
+                            vue.$message({
+                                type: 'success',
+                                message: this.title+'成功!'
+                            });
+                            this.dialogFormVisible=false;
+                            this.showTable();
+                            //取消选中
+                            for(var i in selectedMenu){
+                                this.$refs['menu-tree-ref'].setChecked(selectedMenu[i],false);
+                            }
+                            //数据清空
+                            roleForm.roleMenuIds='';
+                            roleForm.roleName = '';
+                        }else{
+                            this.$message({
+                                type: 'info',
+                                message: response.body.msg
+                            })
+                        }
+                    });
+                },
+                editRole(row){
+                    this.showAddRole();
+                    this.title="编辑角色";
+                    this.roleForm.roleId=row.id;
+                    this.roleForm.roleName=row.roleName;
+                    //查询角色已有菜单
+                    vue.$http.post(
+                            [[@{/role/findRoleMenu}]],
+                            {roleId:row.id}
+                    ).then( response => {
+                        if(response.body.code=='000'){
+                            var hasMenu =  response.body.data;
+                            //选中已有菜单
+                            for(var i in hasMenu){
+                                this.$refs['menu-tree-ref'].setChecked(hasMenu[i],true);
+                            }
+                            this.roleForm.submitType = 1;//开启编辑模式
+                        }else{
+                            vue.$message({
+                                type: 'info',
+                                message: response.body.msg
+                            })
+                        }
+                    });
+                },
+                findAllMenu(){
+                    //查询所有menu
+                    this.$http.post(
+                            [[@{/role/findAllMenu}]],
+                        {
+                            clientId:this.managerClient
+                        }
+                    ).then( response => {
+                        if(response.body.code=='000'){
+                            this.menuList=response.body.data;
+                            console.log(this.$refs['menu-tree-ref']);
+                        }else{
+                            console.log("load menu data error!")
+                        }
+                    });
+                }
+            }
+        });
+        /*]]>*/
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+>
+<head>
+    <meta charset="UTF-8">
+    <title>企发管理平台</title>
+    <script th:src="@{/js/vue.min.js}"></script>
+    <script th:src="@{/js/vue-router.min.js}"></script>
+    <script th:src="@{/js/vue-resource.min.js}"></script>
+    <script th:src="@{/element-ui/lib/index.js}"></script>
+    <link rel="stylesheet" th:href="@{/element-ui/lib/theme-chalk/index.css}">
+    <script th:src="@{/js/jquery-3.1.1.min.js}"></script>
+
+    <style>
+        .el-header {
+            text-align: right;
+            font-size: 16px;
+            line-height: 60px;
+            background-color: #F0F8FF;
+        }
+         .el-dropdown-link {
+             cursor: pointer;
+             color: #409EFF;
+         }
+        .el-icon-arrow-down {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body >
+    <div id="app">
+        <el-container >
+            <el-header>
+                <div style="float: left">
+                    选择管理系统:
+                    <el-select v-model="defaultClient" placeholder="选择管理系统" v-on:change="changeMenuList()">
+                        <el-option
+                                v-for="item in clientList"
+                                :value="item.client_id"
+                                :key = "item.client_id"
+                                :label="item.client_name">
+                        </el-option>
+                    </el-select>
+                </div>
+                <el-dropdown v-on:command="handleCommand">
+                    <span class="el-dropdown-link" ><span v-html="userInfo.nick_name"></span><i class="el-icon-arrow-down el-icon--right"></i></span>
+                    <el-dropdown-menu slot="dropdown">
+                        <el-dropdown-item command="showPassWord">修改密码</el-dropdown-item>
+                        <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+                    </el-dropdown-menu>
+                </el-dropdown>
+                <!--<span v-html="userInfo.nick_name"></span>-->
+                <!--<el-button type="text" v-on:click="logout()">退出</el-button>-->
+            </el-header>
+            <el-dialog title="修改密码" :visible.sync="dialogFormVisible" width="500px;">
+            <el-form ref="form" label-width="80px" :rules="rules" label-suffix=":" :model="ruleForm">
+                <el-form-item label="原密码" prop="old_password">
+                    <el-input v-model="ruleForm.old_password" style="width: 200px;"  auto-complete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="新密码" prop="new_password">
+                    <el-input v-model="ruleForm.new_password" style="width: 200px;"  auto-complete="off"></el-input>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button v-on:click="dialogFormVisible = false">取 消</el-button>
+                <el-button type="primary" v-on:click="updatePassWord()">确 定</el-button>
+            </div>
+            </el-dialog>
+            <el-container>
+                <el-aside style="width:230px;">
+                    <el-menu v-on:open="handleOpen" v-bind:style="{ height: leftMenuHeight + 'px'}">
+                        <div v-for="(item,index) in menuList">
+
+                            <el-menu-item v-if="item.sonMenuList.length==0" v-bind:index="index" v-on:click="selectMenu(index,item.menuId,item.menuName,item.url,item.preUrl)">{{item.menuName}}</el-menu-item>
+
+                            <el-submenu v-if="item.sonMenuList.length>0" v-bind:index="index" v-on:click="selectMenu(index,item.menuId,item.menuName,item.url,item.preUrl)">
+                                <template slot="title">
+                                    <span>{{item.menuName}}</span>
+                                </template>
+                                <el-menu-item v-for="(subItem,subIndex) in item.sonMenuList" v-bind:index="index+'_'+subIndex" v-on:click="selectMenu(index+'_'+subIndex,subItem.menuId,subItem.menuName,subItem.url,subItem.preUrl)">{{subItem.menuName}}</el-menu-item>
+                            </el-submenu>
+                        </div>
+                    </el-menu>
+                </el-aside>
+                <el-container>
+                    <el-main style="margin: 0px;padding: 0">
+                        <el-tabs v-if="tabList.length>0" v-model="defaultTab" type="border-card"
+                                 closable
+                                 v-on:tab-remove="removeTab">
+                            <el-tab-pane
+                                    v-for="(item, index) in tabList"
+                                    :key="item.name"
+                                    :label="item.title"
+                                    :name="item.name"
+                            >
+                                <div v-html="item.content"> </div>
+                            </el-tab-pane>
+                        </el-tabs>
+                        <div v-if="route == 2">
+                            <iframe name="iframe" id ="iframe" :src="columnName" frameborder="0" style="width:100%;height: 800px;"></iframe>
+                        </div>
+                    </el-main>
+                   <!-- <el-footer class="el-footer" >Footer</el-footer>-->
+                </el-container>
+            </el-container>
+        </el-container>
+
+    </div>
+
+    <script th:inline="javascript">
+        var basePath=[[@{/}]];
+        var clientList = [[${data.client_list}]];
+        var userInfo = [[${data.user_info}]];
+        var defaultClient = [[${defaultClient}]];
+        var defaultMenuList = [[${defaultMenuList}]];
+        /*<![CDATA[*/
+        Vue.http.options.emulateJSON = true;
+        var vue = new Vue({
+            el: '#app',
+            data:{
+                dialogFormVisible : false,
+                clientList:clientList,
+                defaultClient:defaultClient,
+                userInfo:userInfo,
+                menuList:defaultMenuList,
+                tabList:[],
+                defaultTab:"",
+                leftMenuHeight: "", //设置页面高度
+                rules:{
+                    old_password: [
+                        { validator:function(rule, value, callback){
+                                if(value==''){
+                                    callback(new Error('请输入原密码'));
+                                }
+                                if(value.length<8||value.length>30){
+                                    callback(new Error('长度在8-30个字符内'));
+                                }
+                                callback();
+                            },
+                            trigger: 'blur' }
+                    ],
+                    new_password: [
+                        { validator:function(rule, value, callback){
+                                if(value==''){
+                                    callback(new Error('请输入新密码'));
+                                }
+                                if(value.length<8||value.length>30){
+                                    callback(new Error('长度在8-30个字符内'));
+                                }
+                                callback();
+                            },
+                            trigger: 'blur' }
+                    ]
+                },
+                ruleForm:{
+                    old_password:"",
+                    new_password:""},
+                frameId:"",
+                route : '1',
+                columnName :""
+            },
+            mounted(){
+                //计算页面高度
+                var heights =  document.documentElement.clientHeight;
+                this.leftMenuHeight = heights - 68;
+            },
+            updated(){
+                if(this.frameId!=""){
+                    $("#"+this.frameId).parent().height(this.leftMenuHeight+"px");
+                }
+            },
+            methods:{
+                //修改密码和退出
+                handleCommand(command) {
+                    this[command]();
+                },
+                //选择菜单时候，动态添加标签页
+                selectMenu(index,menuId,menuName,url,preUrl){
+                    //最后确定直接打开，去掉标签页
+                    vue.route = 2;
+                    vue.columnName = url;
+                },
+                //菜单打开事件
+                handleOpen(key,keyPath){
+//                    this.menuList[1].subMenuList.push(
+//                            {menuId:1006,menuName:"报销分类1111",url:"/qy/fenlei",subMenuList:[]}
+//                    );
+                },
+                //菜单关闭事件
+                handleClose(key,keyPath){
+                    console.log(key);
+                },
+                //移除标签页
+                removeTab(tabName){
+                    let tabs = this.tabList;
+                    let activeName = this.defaultTab;
+                    if (activeName === tabName) {
+                        tabs.forEach((tab, index) => {
+                            if (tab.name === tabName ){
+                                let nextTab = tabs[index + 1] || tabs[index - 1];
+                                if (nextTab) {
+                                    activeName = nextTab.name;
+                                }
+                            }
+                        });
+                    }
+                    this.defaultTab = activeName;
+                    this.tabList = tabs.filter(tab => tab.name !== tabName);
+                },
+                //切换客户端(切换菜单)
+                changeMenuList(){
+                    this.$http.post(
+                            [[@{/userClientMenu}]],
+                            {
+                                clientId:this.defaultClient
+                            }
+                    ).then(
+                         response => {
+                            this.menuList = response.body.data;
+                         }
+                     )
+                },
+                //退出登录
+                logout(){
+                    window.location.href=basePath+"logout";
+                },
+                showPassWord(){
+                    //显示弹窗
+                    this.dialogFormVisible = true;
+                    //重置表单
+                    this.$refs['form'].resetFields();
+                },
+                updatePassWord(){
+                    let oldPassword =  this.ruleForm.old_password;
+                    let newPassword = this.ruleForm.new_password;
+                    if(oldPassword=='' || newPassword=='' || oldPassword.length<8 || oldPassword.length>30 || newPassword.length<8 || newPassword.length>30){
+                        return;
+                    }
+                    this.$refs['form'].validate((valid) => {
+                        if (valid) {
+                            var json = {
+                                'userId':userInfo.user_id,
+                                'oldPassword': oldPassword,
+                                'newPassword': newPassword
+                            };
+                            let postUrl =basePath+"user/updatePassWord";
+                            this.$http.post(postUrl,json, {emulateJSON: true}).then(
+                                (response)=> {
+                                if (response.data.code == '000') {
+                                this.$message({
+                                    message: '恭喜你，修改成功',
+                                    type: 'success'
+                                });
+                                window.location.href=basePath+"logout";
+                            } else if (response.data.code == '001') {
+                                this.$notify({
+                                    title: '警告',
+                                    message: '查询用户有误',
+                                    type: 'warning'
+                                });
+                                return false;
+                            } else if (response.data.code == '002') {
+                                this.$notify({
+                                    title: '警告',
+                                    message: '原密码输入有误',
+                                    type: 'warning'
+                                });
+                                return false;
+                            }else if (response.data.code == '003') {
+                                this.$notify({
+                                    title: '警告',
+                                    message: '密码修改有误，请重试',
+                                    type: 'warning'
+                                });
+                                return false;
+                            }else {
+                                this.$notify.error({
+                                    title: '错误信息',
+                                    message: '系统错误，请联系管理员'
+                                })
+                            }
+                        }
+                        )
+                            //vue.dialogFormVisible = false;
+                        } else {
+                            console.log('error submit!!');
+                        }
+                        return false;
+                    });
+                }
+            }
+        })
+
+        /*]]>*/
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+>
+<head>
+    <meta charset="UTF-8">
+    <title>菜单管理</title>
+    <script th:src="@{/js/vue.min.js}"></script>
+    <!--<script src="https://cdn.bootcss.com/vue/2.5.13/vue.js"></script>-->
+    <script th:src="@{/js/vue-router.min.js}"></script>
+    <script th:src="@{/js/vue-resource.min.js}"></script>
+    <script th:src="@{/element-ui/lib/index.js}"></script>
+    <link rel="stylesheet" th:href="@{/element-ui/lib/theme-chalk/index.css}">
+    <script th:src="@{/js/jquery-3.1.1.min.js}"></script>
+    <style>
+        .el-header {
+            text-align: right;
+            font-size: 16px;
+            line-height: 60px;
+            background-color: #F0F8FF;
+        }
+    </style>
+</head>
+<body >
+    <div id="app">
+        <el-header>
+            <div style="float: left">
+                请选择系统:
+                <el-select v-model="managerClient" placeholder="请选择系统">
+                    <el-option
+                            v-for="item in clientList"
+                            :value="item.client_id"
+                            :key = "item.client_id"
+                            :label="item.client_name">
+                    </el-option>
+                </el-select>
+                <el-button type="primary"  icon="el-icon-search"  v-on:click="selectMenu()">查询</el-button>
+            </div>
+        </el-header>
+        <el-container style="width: 100%;">
+            <el-tree style="width: 100%;"
+                    :props="defaultProps"
+                    node-key="menuId"
+                     :data="menuList"
+                     :expand-on-click-node="expandOnClickNode"
+                     v-on:node-expand="handleNodeClick"
+                     :default-expand-all="defaultExpandAll"
+                    :render-content="renderContent">
+            </el-tree>
+        </el-container>
+
+        <el-dialog :title=title :visible.sync="dialogFormVisible">
+            <el-form :label-position="labelPosition" :rules="menuFormRules" :model="menuForm" ref="menuFormRef">
+                <el-form-item label="菜单名称" :label-width="formLabelWidth" prop="menuName" >
+                    <el-input type="text" v-model="menuForm.menuName"    auto-complete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="菜单地址" :label-width="formLabelWidth" prop="menuUrl" >
+                    <el-input type="text" v-model="menuForm.menuUrl"  auto-complete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="排序" :label-width="formLabelWidth" prop="orderBy" >
+                    <el-input type="text" v-model="menuForm.orderBy" auto-complete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="页面隐藏地址" :label-width="formLabelWidth" prop="menuType">
+                    <el-select v-model="menuForm.menuType"  placeholder="请选择">
+                        <el-option label="否" value="1" key="1"></el-option>
+                        <el-option label="是" value="2" key="2"></el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item size="large">
+                    <el-button type="primary" v-on:click="submitMenuForm('menuFormRef')">提 交</el-button>
+                    <el-button type="primary" v-on:click="dialogFormVisible = false">取 消</el-button>
+                </el-form-item>
+            </el-form>
+        </el-dialog>
+    </div>
+
+    <script th:inline="javascript">
+        var basePath=[[@{/}]];
+        var clientList = [[${managerClientList}]];
+        /*<![CDATA[*/
+        Vue.http.options.emulateJSON = true;
+        var vue = new Vue({
+            el: '#app',
+            data:{
+                clientList:clientList,
+                managerClient:"",
+                expandOnClickNode:false,
+                defaultExpandAll:false,
+                menuList:[{menuName:"根目录",menuId:"0",sonMenuList:[]}],
+                defaultProps:{
+                    label: 'menuName',
+                    id: 'menuId',
+                    children: 'sonMenuList',
+                    isLeaf:'hasSon'
+                },
+                //默认隐藏对话框
+                dialogFormVisible:false,
+                menuForm:{
+                    menuId:'',
+                    menuUrl:'',
+                    menuName:'',
+                    orderBy:'',
+                    menuType:'',
+                    menuPid:'',
+                    hasSon:''
+                },
+                formLabelWidth:'120px',
+                labelPosition:'left',
+                menuFormRules:{
+                    menuName:[{required: true, message: '请输入菜单名称',trigger: 'blur'}],
+                    menuUrl:[{max: 100, message: '长度在100个字符以内',trigger: 'blur'}],
+                    orderBy:[{required: true, message: '请输入排序序号',trigger: 'blur'}],
+                    menuType:[{required: true, message: '请选择菜单类型',trigger: 'blur'}]
+                },
+                currentNode:"",
+                selectClientButton:false,
+                title:""
+            },
+            mounted(){
+                //计算页面高度
+                var heights =  document.documentElement.clientHeight;
+                this.leftMenuHeight = heights - 68;
+            },
+            updated(){
+
+            },
+            methods:{
+                //查询系统下菜单
+                selectMenu(){
+                    if(this.managerClient==""){
+                        this.$alert("请选择系统", '提示', {
+                            confirmButtonText: '确定'
+                        })
+                        return false;
+                    }
+                    this.selectClientButton = true;
+                    this.loadSonMenuList(this.menuList[0],true);
+                },
+                handleNodeClick(data,node,vueComponent){
+                    if(this.managerClient==""){
+                        return false;
+                    }
+                    this.loadSonMenuList(data,true);
+                },
+                //加载子节点，nodeData当前节点的绑定data  ；  flag 标识是 用户触发调用还是，ajax回调显示子节点的子节点
+                loadSonMenuList(nodeData,flag){
+
+                    vue.$http.post(
+                            [[@{/menu/loadSonMenuList}]],
+                            {
+                                pid: nodeData.menuId ,
+                                clientId: vue.managerClient
+                            }
+                    ).then(
+                            response => {
+                                if(response.body.code=='000'){
+                                    nodeData.sonMenuList = response.body.data;
+                                    if(flag){
+                                        nodeData.sonMenuList.forEach(function(value1,index1,array1){
+                                            //如果有子节点，则加载下一级子节点（sonMenuList length为0 的话就无法区分是否有子节点了。界面看不出来，所以加载一次。）
+                                            if(value1.hasSon){
+                                                vue.loadSonMenuList(value1,false);
+                                            }
+                                        });
+                                    }
+                                }else{
+                                    console.log(response.body.msg);
+                                }
+                            }
+                    );
+                },
+                submitMenuForm(formName){
+                    this.$refs[formName].validate((valid) => {
+                        if (valid) {
+                            this.addMenu();
+                        } else {
+                            console.log('error submit!!');
+                            return false;
+                        }
+                    })
+                },
+                //不传node则表示是添加根节点
+                addMenu(){
+                    if(this.managerClient==""){
+                        this.$alert("请选择系统", '提示', {
+                            confirmButtonText: '确定'
+                        })
+                        return false;
+                    }
+                    if(this.currentNode === ''){
+
+                    }else{
+                        this.menuForm.menuPid=this.currentNode.data.menuId;
+                        this.menuForm.clientId=this.managerClient;
+                    }
+                    this.$http.post(
+                            [[@{/menu/add}]],
+                            this.menuForm
+                        ).then(response => {
+                            if(response.body.code=='000'){
+                                var menuData= {
+                                    menuName:this.menuForm.menuName,
+                                    menuUrl:this.menuForm.menuUrl,
+                                    orderBy:this.menuForm.orderBy,
+                                    menuType:this.menuForm.menuType,
+                                    sonMenuList:[],
+                                    menuId:response.body.data
+                                };
+                                this.menuForm = {
+                                    menuId:'',
+                                    menuUrl:'',
+                                    menuName:'',
+                                    orderBy:'',
+                                    menuType:'',
+                                    menuPid:'',
+                                    hasSon:''
+                                };
+                                this.$alert(response.body.msg, '提示', {
+                                    confirmButtonText: '确定'
+                                });
+                                //重置表单
+                                // this.$refs['menuFormRef'].resetFields();
+                                this.dialogFormVisible=false;
+                                if(this.currentNode === ''){
+                                    this.loadSonMenuList(this.menuList[0],true);
+                                }else{
+                                    this.currentNode.data.sonMenuList.push(menuData);
+                                }
+
+                            }else{
+                                this.$alert(response.body.msg, '提示', {
+                                    confirmButtonText: '确定'
+                                });
+                            }
+                        }
+                    )
+                },
+                menuAdd(node,data,store){
+                    if(!this.selectClientButton){
+                        this.$alert("请先查询", '提示', {
+                            confirmButtonText: '确定'
+                        })
+                        return false;
+                    }
+                    this.title = "新增菜单";
+                    this.menuForm = {
+                        menuId:'',
+                        menuUrl:'',
+                        menuName:'',
+                        orderBy:'',
+                        menuType:'',
+                        menuPid:'',
+                        hasSon:''
+                    };
+                    this.currentNode=node;
+                    this.dialogFormVisible=true;
+                },
+                menuUpd(node,data,store) {
+                    this.title = "修改菜单";
+                    this.dialogFormVisible = true;
+                    if(this.$refs["menuFormRef"]!=''&& this.$refs["menuFormRef"]!=null&&this.$refs["menuFormRef"]!='undefined'){
+                        this.$refs["menuFormRef"].resetFields();
+                    }
+                    this.menuForm = data;
+                    if (data.menuUrl === '') {
+                        this.menuForm.menuType = '1'
+                    }
+                    if (data.menuType == 1) {
+                        this.menuForm.menuType = '1'
+                    } else {
+                    this.menuForm.menuType = '2'
+                    }
+                    this,currentNode = '';
+                },
+                menuRemove(node,data,store){
+                    this.$confirm('此操作将删除【'+data.menuName+'】及其子菜单, 是否继续?', '提示', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                        }).then(() => {
+                            //调用后台删除接口
+                            vue.$http.post(
+                                        [[@{/menu/del}]],
+                                {
+                                    menuId: data.menuId
+                                }
+                            ).then(
+                                response => {
+                                    if(response.body.code=='000'){
+                                        //父节点中删除改子节点；
+                                        var parentsMenuList = node.parent.data.sonMenuList;
+                                        for(var i=0;i<parentsMenuList.length;i++){
+                                            if(parentsMenuList[i].menuId==data.menuId){
+                                                parentsMenuList.splice(i,1);
+                                            }
+                                        }
+                                        vue.$message({
+                                            type: 'success',
+                                            message: '删除成功!'
+                                        });
+                                    }else{
+                                        console.log(response.body.msg);
+                                        this.$message({
+                                            type: 'info',
+                                            message: response.body.msg
+                                        })
+                                    }
+                                }
+                            );
+
+                    }).catch(() => {
+                            this.$message({
+                            type: 'info',
+                            message: '已取消删除'
+                        });
+                    });
+                },
+                renderContent(createElement, { node, data, store }) {
+                    if(node.data.menuId=='0'){
+                        return createElement(
+                            'span',
+                            {
+                                style:{
+                                    'flex':'1',
+                                    'display':'flex',
+                                    'align-items':'center',
+                                    'justify-content':'space-between',
+                                    'font-size':'18px',
+                                    'padding-right':'8px'
+                                }
+                            },
+                            [
+                                createElement(
+                                    'span',
+                                    {},
+                                    [
+                                        createElement('span',node.label)
+                                    ]
+                                ),
+                                createElement(
+                                    'span',
+                                    {},
+                                    [
+                                        createElement('el-button',
+                                            {
+                                                style:{
+                                                    'font-size':' 12px'
+                                                },
+                                                attrs:{
+                                                    'type':'text'
+                                                },
+                                                on:{
+                                                    click:function(){
+                                                        vue.menuAdd(node,data,store);
+                                                    }
+                                                },
+                                                domProps: {
+                                                    innerHTML: '增加'
+                                                }
+                                            }
+                                        )
+                                    ]
+                                )
+                            ]
+                        );
+                    }else {
+                        return createElement(
+                            'span',
+                            {
+                                style:{
+                                    'flex':'1',
+                                    'display':'flex',
+                                    'align-items':'center',
+                                    'justify-content':'space-between',
+                                    'font-size':'18px',
+                                    'padding-right':'8px'
+                                }
+                            },
+                            [
+                                createElement(
+                                    'span',
+                                    {},
+                                    [
+                                        createElement('span',node.label)
+                                    ]
+                                ),
+                                createElement(
+                                    'span',
+                                    {},
+                                    [
+                                        createElement('el-button',
+                                            {
+                                                style:{
+                                                    'font-size':' 12px'
+                                                },
+                                                attrs:{
+                                                    'type':'text'
+                                                },
+                                                on:{
+                                                    click:function(){
+                                                        vue.menuAdd(node,data,store);
+                                                    }
+                                                },
+                                                domProps: {
+                                                    innerHTML: '增加'
+                                                }
+                                            }
+                                        ),
+                                        createElement('el-button',
+                                            {
+                                                style:{
+                                                    'font-size':' 12px'
+                                                },
+                                                attrs:{
+                                                    'type':'text'
+                                                },
+                                                on:{
+                                                    click:function(){
+                                                        vue.menuUpd(node,data,store);
+                                                    }
+                                                },
+                                                domProps: {
+                                                    innerHTML: '修改'
+                                                }
+                                            }
+                                        )
+                                        ,
+                                        createElement('el-button',
+                                            {
+                                                style:{
+                                                    'font-size':' 12px'
+                                                },
+                                                attrs:{
+                                                    'type':'text'
+                                                },
+                                                on:{
+                                                    click:function(){
+                                                        vue.menuRemove(node,data,store);
+                                                    }
+                                                },
+                                                domProps: {
+                                                    innerHTML: '删除'
+                                                }
+                                            }
+                                        )
+                                    ]
+                                )
+                            ]
+                        );
+                    }
+                }
+            }
+        })
+
+        /*]]>*/
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,25 @@
+工程描述：
+替代现有中台管理工具。
+实现功能：通用权限管理。单点登录。
+
+oauth_server    oauth授权服务端。
+oauth_client    oauth客户端代码。
+system_manager  通用权限配置 (功能未完善，并且有很多bug，只是满足初步运行条件)
+
+
+起始oauth_client 是写在 system_manager里面的，后来为了方便其他系统集成，所以抽离了出来。
+
+集成方式：
+        引入配置文件，添加拦截器即可。（依赖包：apache.oltu.oauth2.client ； httpclient ）
+        非spring boot项目可能需要拷贝oauth_client中的代码，并稍微改造。
+
+
+system_manager的超级管理员需要手动初始化。需要在oauth_user_client中 is_manager设置为1
+
+访问路径：http://127.0.0.1:11089/sysmanager/index
+登录名称：admin
+登录密码: 12345678
+
+：：：：：：：：：：：：：：：
+给非管理系统配置添加用户时候，
+需要添加管理系统的 操作员角色。
