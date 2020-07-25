@@ -33,8 +33,8 @@ spring:
 
 #mybatis
 mybatis:
-  mapperLocations: classpath*:com/zhx/oauth2/*/*/mapper/*Mapper.xml
-  typeAliasesPackage: com.zhx.oauth2
+  mapperLocations: classpath*:com/simonhu/oauth2/*/*/mapper/*Mapper.xml
+  typeAliasesPackage: com.simonhu.oauth2
 
 management:
   #关闭安全检测

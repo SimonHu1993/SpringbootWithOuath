@@ -32,8 +32,8 @@ spring:
 
 #mybatis
 mybatis:
-  mapperLocations: classpath*:com/zhx/sourcemanager/*/*/mapper/*Mapper.xml
-  typeAliasesPackage: com.zhx.sourcemanager
+  mapperLocations: classpath*:com/simonhu/sourcemanager/*/*/mapper/*Mapper.xml
+  typeAliasesPackage: com.simonhu.sourcemanager
 
 management:
   #关闭安全检测

@@ -5,7 +5,7 @@ Configuration:
     Property: # 缺省配置（用于开发环境）。其他环境需要在VM参数中指定，如下：
       - name: log.level.console
         value: error
-      - name: log.level.zhx
+      - name: log.level.simonhu
         value: info
       - name: log.level.rootlog
         value: info
@@ -28,7 +28,7 @@ Configuration:
       - name: ROLLING_FILE
         ignoreExceptions: false
         ThresholdFilter:
-          level: ${sys:log.level.zhx} # “sys:”表示：如果VM参数中没指定这个变量值，则使用本文件中定义的缺省全局变量值
+          level: ${sys:log.level.simonhu} # “sys:”表示：如果VM参数中没指定这个变量值，则使用本文件中定义的缺省全局变量值
           onMatch: ACCEPT
           onMismatch: DENY
         fileName: ${log.path}/${project.name}.log

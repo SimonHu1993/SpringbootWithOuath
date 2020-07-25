@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.simonhu.oauth2.web.sourceserver.mapper.UserMapper">
+
+   <select id="findUserClientList" parameterType="java.lang.String" resultType="java.util.HashMap">
+      select t2.client_name,t2.client_id,t2.index_url,t2.client_sign_key,t1.is_manager
+      from oauth_user_base_info t, oauth_user_client t1, oauth_client_info t2
+      where t.user_id=t1.user_id and t1.client_id=t2.client_id
+      and t1.`status`=1 and t2.client_status=1 and t.user_status=1
+      and t.user_id=#{userId}
+   </select>
+
+   <select id="permissionsList" parameterType="java.util.HashMap" resultType="java.lang.String">
+      select t2.menu_url from oauth_user_base_info ou,oauth_user_role t , oauth_role_menu t1 ,oauth_menu t2
+      where ou.user_id=t.user_id and t.role_id=t1.role_id and t1.menu_id=t2.id
+      and ou.user_status=1 and t.`status`=1 and t1.`status`=1 and t2.`status`=1
+      and ou.user_id=#{userId} and t2.client_id=#{clientId}
+   </select>
+
+   <select id="selectSysAcount" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+      SELECT user_id,phone_no,user_name,nick_name FROM  oauth_user_base_info WHERE  phone_no =#{phone} and user_status =1
+   </select>
+
+   <select id="selUserOffice" parameterType="java.lang.String" resultType="java.util.HashMap">
+      select office_id from oauth_user_office where user_id =#{userId} and status =1
+   </select>
+
+
+</mapper>

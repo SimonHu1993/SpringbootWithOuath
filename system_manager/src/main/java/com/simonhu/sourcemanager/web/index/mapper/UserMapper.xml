@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.simonhu.sourcemanager.web.index.mapper.UserMapper">
+
+    <select id="listUser" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+        select
+        t.user_id userId,
+        t.user_name userName,
+        t.phone_no phoneNo,
+        t.nick_name nickName,
+        t.email,
+        DATE_FORMAT(t.create_time,'%Y-%m-%d %H:%m:%s') as createTime
+        from oauth_user_base_info t , oauth_user_client t1
+        where t.user_id = t1.user_id and t1.client_id in (${clientIdsStr}) and t1.status=1
+        <if test="excludeManager != null ">
+            and t.user_id not in (
+              select t2.user_id from oauth_user_client t2 where t2.status=1 and t2.client_id = #{excludeManager} and t2.is_manager=1
+            )
+        </if>
+        <if test=" userStatus != 100">
+            and t.user_status=#{userStatus}
+        </if>
+        <if test=" phoneNo != ''">
+            and t.phone_no=#{phoneNo}
+        </if>
+        <if test=" userName != ''">
+            and t.user_name=#{userName}
+        </if>
+        group by t.user_name
+        order by t.user_id desc
+    </select>
+
+    <update id="delUser" parameterType="java.lang.Integer">
+        update oauth_user_base_info set user_status = 0 ,create_user_id=#{createUser} where user_id = #{userId}
+    </update>
+
+    <select id="checkUser" parameterType="java.util.HashMap" resultType="java.lang.Integer">
+        select count(1) from oauth_user_base_info t where t.user_name=#{userName} and t.user_status=1
+    </select>
+
+    <insert id="addUser" parameterType="java.util.HashMap">
+        <selectKey resultType="java.lang.Integer" order="AFTER" keyProperty="userId">
+            SELECT LAST_INSERT_ID() AS ID
+        </selectKey>
+        insert into oauth_user_base_info
+        (user_name,login_pwd,nick_name,phone_no,email,user_status,create_time,passwd_time,create_user_id)
+        values
+        (#{userName},#{loginPwd},#{nickName},#{phoneNo},#{email},1,now(),now(),#{createUser})
+    </insert>
+
+    <insert id="addUserClient" parameterType="java.util.HashMap">
+        insert into oauth_user_client
+        (user_id,client_id,status,create_time,is_manager,create_user_id)
+        values
+        (#{userId},#{clientId},1,now(),#{isManager},#{createUser})
+    </insert>
+
+    <insert id="addUserRole" parameterType="java.util.HashMap">
+        insert into oauth_user_role
+        (user_id,role_id,status,create_time,create_user_id)
+        values
+        (#{userId},#{roleId},1,now(),#{createUser})
+    </insert>
+
+    <select id="selectAllClient" resultType="java.util.HashMap">
+        select t2.client_name,t2.client_id,t2.index_url,t2.client_sign_key
+        from  oauth_client_info t2
+        where  t2.client_status=1 order by t2.id desc
+    </select>
+
+    <select id="listUserClient" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+        select t1.client_id clientId,t1.client_name clientName,t.is_manager isManager
+        from oauth_user_client t, oauth_client_info t1
+        where t.client_id=t1.client_id and t.status=1 and t1.client_status=1 and t.user_id= #{userId} order by t.id desc
+    </select>
+
+    <select id="listUserClientRole" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+        select t1.role_name roleName,t1.id roleId from oauth_user_role t ,oauth_role t1
+        where t.role_id=t1.id
+        and t1.`status`=1 and t.`status`=1
+        and t1.client_id=#{clientId}
+        and t.user_id=#{userId} order by t.id asc
+    </select>
+
+    <update id="updateUser"  parameterType="java.util.HashMap" >
+        update oauth_user_base_info set nick_name=#{nickName},phone_no=#{phoneNo},email=#{email},create_user_id=#{createUser} where user_id=#{userId}
+    </update>
+
+    <update id="delUserClient"  parameterType="java.util.HashMap" >
+        update oauth_user_client set status=0 ,create_user_id=#{createUser} where user_id=#{userId}
+    </update>
+
+    <update id="delUserRole"  parameterType="java.util.HashMap" >
+        update oauth_user_role set status=0 ,create_user_id=#{createUser} where user_id=#{userId}
+    </update>
+
+    <select id="checkPhone" parameterType="java.util.HashMap" resultType="java.lang.Integer">
+        select count(1) from oauth_user_base_info t where t.phone_no=#{phoneNo} and t.user_status=1
+    </select>
+
+    <select id="selUser" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+        select * from oauth_user_base_info t where t.user_id=#{userId} and t.user_status=1
+    </select>
+
+    <update id="updateUserPassWord"  parameterType="java.util.HashMap" >
+        update oauth_user_base_info set login_pwd=#{newPassword}, create_user_id=#{createUser} where user_id=#{userId} and user_status=1
+    </update>
+
+    <select id="selOffices" resultType="java.util.HashMap">
+        select cast(id as char) id,branch_office from oauth_branch_office where status =1 order by order_by
+    </select>
+
+    <select id="selUserOffice" parameterType="java.util.HashMap"  resultType="java.util.HashMap">
+        select cast(office_id as char) id from oauth_user_office where user_id =#{userId} and status =1
+    </select>
+
+    <update id="delUserOffice"  parameterType="java.util.HashMap">
+        update oauth_user_office set status =0 ,create_user_id=#{createUser} where user_id =#{userId}
+    </update>
+
+    <insert id="addUserOffice" parameterType="java.util.HashMap">
+        insert into oauth_user_office
+        (user_id,office_id,status,create_time,create_user_id)
+        values
+        (#{userId},#{officeId},1,now(),#{createUser})
+    </insert>
+</mapper>

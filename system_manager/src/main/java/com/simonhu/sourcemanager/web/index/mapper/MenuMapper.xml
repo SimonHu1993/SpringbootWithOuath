@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.simonhu.sourcemanager.web.index.mapper.MenuMapper">
+
+    <select id="loadSonMenuList" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+        select t.id menuId,t.menu_name menuName,t.menu_url menuUrl,t.order_by orderBy,t.menu_type menuType,
+        t.menu_level menuLevel,t.has_son hasSon,t.pid menuPid
+        from oauth_menu t
+        where t.`status`=1
+            and t.client_id=#{clientId}
+            and t.pid=#{pid}
+        order by t.order_by asc
+    </select>
+
+    <insert id="addMenu" parameterType="java.util.HashMap">
+        <selectKey resultType="java.lang.Integer" order="AFTER" keyProperty="menuId">
+            SELECT LAST_INSERT_ID() AS ID
+        </selectKey>
+        insert into oauth_menu (menu_name,menu_url,menu_type,pid,client_id,order_by,status,create_time)
+        values (#{menuName},#{menuUrl},#{menuType},#{menuPid},#{clientId},#{orderBy},1,now())
+    </insert>
+
+    <update id="updateMenuHasSon" parameterType="java.lang.Integer">
+        update oauth_menu set has_son=1 where id = #{menuPid}
+    </update>
+
+    <update id="delMenu" parameterType="java.lang.Integer">
+        update oauth_menu set status=0 where id = #{menuId}
+    </update>
+
+    <update id="updateMenu" parameterType="java.util.HashMap">
+        update oauth_menu set menu_name =#{menuName} ,menu_url =#{menuUrl},menu_type =#{menuType},order_by =#{orderBy} where id = #{menuId}
+    </update>
+    <select id="findSonMenu" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+        select id from oauth_menu where status =1 and pid = #{menuId} order by id asc
+    </select>
+
+    <select id="listMenuByClientId" parameterType="java.lang.String" resultType="java.util.HashMap">
+        SELECT
+            id menuId,
+            menu_name menuName,
+            menu_type menuType,
+            pid,
+            menu_level menuLevel,
+            has_son hasSon,
+            client_id clientId,
+            order_by orderBy,
+            `status`
+        FROM
+            oauth_menu
+        WHERE status =1 and
+            client_id = #{clientId}
+            order by order_by asc
+    </select>
+    <!--CONCAT('http://127.0.0.1:11087/ciserveradmin',t3.menu_url) url,
+    CONCAT('http://127.0.0.1:11087/ciserveradmin','/') preUrl,-->
+    <select id="listUserClientMenu" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+        select DISTINCT t3.id menuId,
+        t3.menu_name menuName,
+        t3.menu_type menuType,
+        t3.pid,
+        t3.menu_level menuLevel,
+        t3.has_son hasSon,
+        t3.order_by orderBy,
+        CONCAT(t4.url_prefix,t3.menu_url) url,
+        CONCAT(t4.url_prefix,'/') preUrl,
+        t3.`status`
+        from oauth_user_role t1 , oauth_role_menu t2 ,oauth_menu t3 ,oauth_client_info t4
+        where t1.role_id=t2.role_id and t2.menu_id=t3.id and t3.client_id=t4.client_id
+        and t1.`status`=1 and t2.`status`=1 and t3.`status`=1 and t4.client_status=1
+        and t3.menu_type=1
+        and t1.user_id=#{userId}
+        and t3.client_id=#{clientId}
+        order by t3.order_by asc
+    </select>
+
+</mapper>
